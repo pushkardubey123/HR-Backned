@@ -556,9 +556,15 @@ const getAllAttendance = async (req, res) => {
 
 const getAttendanceByEmployee = async (req, res) => {
   try {
-    const data = await attendanceTbl.find({ employeeId: req.params.id }).sort({ date: -1 });
+    const { id } = req.params;
+    if (!id || id === "undefined") {
+      return res.status(400).json({ success: false, message: "Invalid Employee ID" });
+    }
+    const data = await attendanceTbl.find({ employeeId: id }).sort({ date: -1 });
     res.status(200).json({ success: true, data });
-  } catch (err) { res.status(500).json({ success: false, message: "Server Error" }); }
+  } catch (err) { 
+    res.status(500).json({ success: false, message: "Server Error" }); 
+  }
 };
 
 const deleteAttendance = async (req, res) => {

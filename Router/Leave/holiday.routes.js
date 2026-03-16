@@ -2,36 +2,22 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../../Middleware/auth"); 
 const companyMiddleware = require("../../Middleware/companyMiddleware");
+const checkPermission = require("../../Middleware/checkPermission"); 
+
 const { 
     getHolidays, 
     addHoliday, 
     updateHoliday, 
     deleteHoliday, 
-    updateSettings // ✅ Import this
+    updateSettings 
 } = require("../../Controllers/Leave/HolidayController");
 
-// Middleware to check Admin Role
-const isAdmin = (req, res, next) => {
-    if(req.user.role !== 'admin') return res.status(403).json({message: "Access Denied"});
-    next();
-};
+router.get("/", auth, companyMiddleware, getHolidays); 
 
-// --- ROUTES ---
-
-// 1. Get All Holidays
-router.get("/", auth, companyMiddleware, getHolidays);
-
-// 2. 🔥 UPDATE SETTINGS (Saturday Off Toggle)
-// ⚠️ IMPORTANT: Ise '/:id' se PEHLE rakhna zaroori hai
-router.put("/settings", auth, companyMiddleware, isAdmin, updateSettings);
-
-// 3. Add Holiday
-router.post("/", auth, companyMiddleware, isAdmin, addHoliday);
-
-// 4. Update Holiday (ID based)
-router.put("/:id", auth, companyMiddleware, isAdmin, updateHoliday);
-
-// 5. Delete Holiday
-router.delete("/:id", auth, companyMiddleware, isAdmin, deleteHoliday);
+// CHANGED "leave" to "holidays"
+router.put("/settings", auth, companyMiddleware, checkPermission("holidays", "edit"), updateSettings);
+router.post("/", auth, companyMiddleware, checkPermission("holidays", "create"), addHoliday);
+router.put("/:id", auth, companyMiddleware, checkPermission("holidays", "edit"), updateHoliday);
+router.delete("/:id", auth, companyMiddleware, checkPermission("holidays", "delete"), deleteHoliday);
 
 module.exports = router;

@@ -12,14 +12,16 @@ const authMiddleware = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // ✅ FIX 1: "designationId" ko select() me add kiya gaya hai
     const user = await User.findById(decoded.id).select(
-      "name email role companyId branchId"
+      "name email role companyId branchId designationId"
     );
 
     if (!user) {
       return res.status(401).json({ success: false, message: "User not found" });
     }
 
+    // ✅ FIX 2: req.user me designationId pass kiya gaya hai
     req.user = {
       _id: user._id,          
       name: user.name,
@@ -27,6 +29,7 @@ const authMiddleware = async (req, res, next) => {
       role: user.role,
       companyId: user.companyId,
       branchId: user.branchId, 
+      designationId: user.designationId // Iske bina Authority kaam nahi karegi!
     };
 
     next();

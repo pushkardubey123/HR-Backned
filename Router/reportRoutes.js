@@ -1,17 +1,14 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../Middleware/auth");
-const {
-  generateDynamicReport,
-  getReports,
-  getDashboardAnalytics,
-} = require("../Controllers/reportController");
-const attachCompanyId = require('../Middleware/companyMiddleware')
+const attachCompanyId = require('../Middleware/companyMiddleware');
+const checkPermission = require("../Middleware/checkPermission"); // ✅ Added
 
-router.post("/generate", auth, generateDynamicReport);
+const { generateDynamicReport, getReports, getDashboardAnalytics } = require("../Controllers/reportController");
 
-router.get("/stream", generateDynamicReport);
-
-router.get("/dashboard", auth, attachCompanyId, getDashboardAnalytics);
+// Require 'reports' permission
+router.post("/generate", auth, checkPermission("reports", "view"), generateDynamicReport);
+router.get("/stream", generateDynamicReport); // Keep open if used for downloading streams
+router.get("/dashboard", auth, attachCompanyId, checkPermission("reports", "view"), getDashboardAnalytics);
 
 module.exports = router;

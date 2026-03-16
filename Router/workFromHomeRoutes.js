@@ -1,24 +1,20 @@
 const express = require("express");
 const router = express.Router();
 const auth = require("../Middleware/auth");
+const attachCompanyId = require("../Middleware/companyMiddleware");
+const checkPermission = require("../Middleware/checkPermission"); // ✅ Added
+
 const {
-  applyWFH,
-  getMyWFH,
-  getAllWFH,
-  updateWFHStatus,
-  adminAssignWFH,
+  applyWFH, getMyWFH, getAllWFH, updateWFHStatus, adminAssignWFH,
 } = require("../Controllers/workFromHomeController");
-const attachCompanyId = require("../Middleware/companyMiddleware")
 
+// 🟢 SELF SERVICE
 router.post("/wfh/apply", auth, attachCompanyId, applyWFH);
-
 router.get("/wfh/my", auth, attachCompanyId, getMyWFH);
 
-router.get("/wfh/all", auth, attachCompanyId, getAllWFH);
-
-router.put("/wfh/status/:id", auth, attachCompanyId, updateWFHStatus);
-
-router.post("/admin/assign-wfh", auth, attachCompanyId, adminAssignWFH);
-
+// 🔴 MANAGEMENT (Requires 'wfh' permission)
+router.get("/wfh/all", auth, attachCompanyId, checkPermission("wfh", "view"), getAllWFH);
+router.put("/wfh/status/:id", auth, attachCompanyId, checkPermission("wfh", "edit"), updateWFHStatus);
+router.post("/admin/assign-wfh", auth, attachCompanyId, checkPermission("wfh", "create"), adminAssignWFH);
 
 module.exports = router;

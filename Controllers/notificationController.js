@@ -3,10 +3,11 @@ const User = require("../Modals/User");
 const pendingEmployee = require("../Modals/PendingUser");
 const Leave = require("../Modals/Leave");
 const Exit = require("../Modals/ExitRequest");
+const AssetAssignment = require("../Modals/Asset/AssetAssignment"); // 🔥 YEH NAYA ADD KIYA
 const mongoose = require("mongoose");
 const fs = require("fs");
 const path = require("path");
-const sendEmail = require("../utils/sendEmail"); // ✅ Import Email Utility
+const sendEmail = require("../utils/sendEmail");
 
 /* ================= ADMIN ALERTS ================= */
 exports.getAdminAlerts = async (req, res) => {
@@ -17,16 +18,11 @@ exports.getAdminAlerts = async (req, res) => {
     if (branchId) baseQuery.branchId = branchId;
 
     const pendingEmployees = await pendingEmployee.countDocuments(baseQuery);
-
-    const pendingLeaves = await Leave.countDocuments({
-      ...baseQuery,
-      status: "Pending",
-    });
-
-    const pendingExits = await Exit.countDocuments({
-      ...baseQuery,
-      clearanceStatus: "pending",
-    });
+    const pendingLeaves = await Leave.countDocuments({ ...baseQuery, status: "Pending" });
+    const pendingExits = await Exit.countDocuments({ ...baseQuery, clearanceStatus: "pending" });
+    
+    // 🔥 NAYA: Asset Requests Count (Status: "Requested") 🔥
+    const pendingAssets = await AssetAssignment.countDocuments({ ...baseQuery, status: "Requested" });
 
     res.json({
       success: true,
@@ -34,12 +30,15 @@ exports.getAdminAlerts = async (req, res) => {
         { title: "Pending Employee Approvals", count: pendingEmployees },
         { title: "Pending Leave Requests", count: pendingLeaves },
         { title: "Pending Exit Requests", count: pendingExits },
+        { title: "Pending Asset Requests", count: pendingAssets }, // 👈 Yahan add kiya
       ],
     });
   } catch (err) {
     res.status(500).json({ success: false, message: "Failed to fetch admin alerts" });
   }
 };
+
+// ... baaki pura code waise hi rahega
 
 /* ================= EMPLOYEE PAGE ================= */
 exports.getEmployeeNotifications = async (req, res) => {

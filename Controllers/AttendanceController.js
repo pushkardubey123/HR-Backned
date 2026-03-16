@@ -173,7 +173,6 @@ const removeDuplicates = async (req, res) => {
     // 3. Delete
     if (duplicateIds.length > 0) {
       await attendanceTbl.deleteMany({ _id: { $in: duplicateIds } });
-      console.log(`🗑️ Deleted ${duplicateIds.length} duplicates.`);
     }
 
     res.json({ success: true, message: `Cleanup done. Removed ${duplicateIds.length} duplicates.` });

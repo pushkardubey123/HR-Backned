@@ -6,6 +6,10 @@ const cors = require("cors");
 const path = require("path");
 const timesheetRoutes = require("./Router/timesheetRoutes");
 const holidayRoutes = require("./Router/Leave/holiday.routes");
+const AuthorityRoutes=require("./Router/authorityRoutes");
+const permissionRouter=require("./Router/permissionRoutes");
+const assetRoutes=require("./Router/assetRoutes");
+
 dotenv.config();
 const app = express();
 
@@ -49,6 +53,11 @@ app.use("/api/notifications", require("./Router/notificationRoutes"));
 app.use("/mail", require("./Router/mailRoutes"));
 app.use("/api", require("./Router/workFromHomeRoutes"));
 app.use(require("./Router/userRouter"));
+
+// server.js
+app.use("/api/permission", AuthorityRoutes);  // Ab ye /api/permission/set ban jayega
+app.use("/api", permissionRouter);            // Ab ye /api/my-modules ban jayega 
+app.use("/api/assets", assetRoutes);         // Ab ye /api/my-modules ban jayega 
 app.use("/api/applications", require("./Router/applicationRoutes"));
 app.use("/api/interviews", require("./Router/interviewRoutes"));
 app.use("/api/timesheet", timesheetRoutes);

@@ -5,6 +5,7 @@ const fs = require("fs");
 const path = require("path");
 const auth = require("../Middleware/auth");
 const attachCompanyId = require("../Middleware/companyMiddleware");
+const checkPermission = require("../Middleware/checkPermission");
 
 // GET SETTINGS
 router.get("/", auth, attachCompanyId, async (req, res) => {
@@ -17,7 +18,7 @@ router.get("/", auth, attachCompanyId, async (req, res) => {
 });
 
 // UPDATE SETTINGS (Fixed Toggle Logic)
-router.put("/", auth, attachCompanyId, async (req, res) => {
+router.put("/", auth, attachCompanyId,checkPermission("settings", "edit"), async (req, res) => {
   try {
     const uploadDir = path.join(__dirname, "..", "uploads", "logo");
     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -73,7 +74,7 @@ router.put("/", auth, attachCompanyId, async (req, res) => {
 });
 
 // REST OF THE DELETE ROUTES REMAIN SAME...
-router.delete("/logo", auth, attachCompanyId, async (req, res) => {
+router.delete("/logo", auth, attachCompanyId,checkPermission("settings", "delete"), async (req, res) => {
   try {
     const settings = await CompanySettings.findOne({ companyId: req.companyId });
     if (settings?.logo) {

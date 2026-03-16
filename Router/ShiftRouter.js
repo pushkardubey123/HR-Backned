@@ -3,6 +3,7 @@ const router = express.Router();
 
 const auth = require("../Middleware/auth");
 const attachCompanyId = require("../Middleware/companyMiddleware");
+const checkPermission = require("../Middleware/checkPermission"); // ✅ Added
 
 const {
   addShift,
@@ -12,16 +13,19 @@ const {
   getPublicShifts,
 } = require("../Controllers/ShiftController");
 
-// ADMIN
-router.post("/", auth, attachCompanyId, addShift);
-router.put("/:id", auth, attachCompanyId, updateShift);
-router.delete("/:id", auth, attachCompanyId, deleteShift);
+// CREATE (Requires 'create' permission for 'shift' module)
+router.post("/", auth, attachCompanyId, checkPermission("shift", "create"), addShift);
 
-// ADMIN (LOGIN REQUIRED)
+// UPDATE (Requires 'edit' permission for 'shift' module)
+router.put("/:id", auth, attachCompanyId, checkPermission("shift", "edit"), updateShift);
+
+// DELETE (Requires 'delete' permission for 'shift' module)
+router.delete("/:id", auth, attachCompanyId, checkPermission("shift", "delete"), deleteShift);
+
+// GET (Open to authenticated users)
 router.get("/admin", auth, attachCompanyId, getAdminShifts);
 
-// PUBLIC (REGISTER PAGE)
+// PUBLIC
 router.get("/", getPublicShifts);
-
 
 module.exports = router;

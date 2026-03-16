@@ -1,28 +1,17 @@
 const Event = require("../Modals/Event");
 const User = require("../Modals/User");
+
 exports.createEvent = async (req, res) => {
   try {
-    const {
-      title,
-      description,
-      startDate,
-      endDate,
-      color,
-      departmentId,
-      employeeId,
-      branchId, // ✅ ADD THIS
-    } = req.body;
+    const { title, description, startDate, endDate, color, departmentId, employeeId, branchId } = req.body;
 
     if (!branchId) {
-      return res.status(400).json({
-        success: false,
-        message: "Branch is required",
-      });
+      return res.status(400).json({ success: false, message: "Branch is required" });
     }
 
     const newEvent = new Event({
       companyId: req.companyId,
-      branchId, // ✅ SAVE IT
+      branchId, 
       title,
       description,
       startDate,
@@ -35,13 +24,8 @@ exports.createEvent = async (req, res) => {
 
     const savedEvent = await newEvent.save();
 
-    res.status(201).json({
-      success: true,
-      message: "Event created successfully",
-      event: savedEvent,
-    });
+    res.status(201).json({ success: true, message: "Event created successfully", event: savedEvent });
   } catch (error) {
-    console.error("Error creating event:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };
@@ -53,8 +37,9 @@ exports.getAllEvents = async (req, res) => {
       companyId: req.companyId,
     };
 
+    // ✅ FIXED: Using req.user.branchId for data isolation instead of failing
     if (req.user.role !== "admin") {
-      filter.branchId = req.branchId;
+      filter.branchId = req.user.branchId; 
     }
 
     const events = await Event.find(filter)
@@ -70,9 +55,9 @@ exports.getAllEvents = async (req, res) => {
 
 exports.updateEvent = async (req, res) => {
   try {
-    // Check karein ki id valid hai ya nahi
+    // ✅ No hardcoded admin check needed; checkPermission middleware handles auth
     const updated = await Event.findByIdAndUpdate(
-      req.params.id, // Direct ID se find karein 
+      req.params.id, 
       req.body,
       { new: true }
     );
@@ -89,6 +74,7 @@ exports.updateEvent = async (req, res) => {
 
 exports.deleteEvent = async (req, res) => {
   try {
+    // ✅ No hardcoded admin check needed
     const deleted = await Event.findByIdAndDelete(req.params.id);
 
     if (!deleted) {
@@ -100,39 +86,38 @@ exports.deleteEvent = async (req, res) => {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 exports.gelOneEvent = async (req, res) => {
   try {
     const userId = req.params.id;
 
+    // Isme branch isolation lagaya hua hai, ye pehle se sahi hai
     const employee = await User.findOne({
       _id: userId,
       companyId: req.companyId,
-      branchId: req.branchId,
+      branchId: req.user.branchId, // Ensure req.user.branchId is used here
     });
 
     if (!employee) {
       return res.status(404).json({ success: false, message: "Employee not found" });
     }
 
-    const departmentIds = Array.isArray(employee.department)
-      ? employee.department
-      : [employee.department];
+    const departmentIds = Array.isArray(employee.department) ? employee.department : [employee.department];
 
-const events = await Event.find({
-  companyId: req.companyId,
-  $or: [
-    { employeeId: userId },
-    { departmentId: { $in: departmentIds } },
-    { departmentId: { $exists: false } }, // Event jisme dept nahi hai (All Dept)
-    { departmentId: null } 
-  ],
-})
+    const events = await Event.find({
+      companyId: req.companyId,
+      $or: [
+        { employeeId: userId },
+        { departmentId: { $in: departmentIds } },
+        { departmentId: { $exists: false } }, 
+        { departmentId: null } 
+      ],
+    })
       .populate("createdBy", "name")
       .populate("departmentId", "name");
 
     res.json({ success: true, data: events });
   } catch (error) {
-    console.error("Error fetching employee events:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

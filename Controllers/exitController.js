@@ -1,3 +1,4 @@
+const AssetAssignment = require("../Modals/Asset/AssetAssignment");
 const ExitRequest = require("../Modals/ExitRequest");
 
 /* =========================
@@ -9,7 +10,7 @@ const createExitRequest = async (req, res) => {
 
     const exit = await ExitRequest.create({
       companyId: req.companyId,
-      branchId: req.branchId || null,
+      branchId: req.user.branchId || null, // ✅ req.user.branchId use kiya gaya hai
       employeeId: req.user._id,
       reason,
       resignationDate,
@@ -43,22 +44,21 @@ const getExitRequestsByEmployee = async (req, res) => {
 };
 
 /* =========================
-   ADMIN → ALL REQUESTS
+   AUTHORIZED HR/ADMIN → ALL REQUESTS
 ========================= */
 const getAllExitRequests = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ success: false });
-    }
+    // ❌ YAHAN SE HARDCODED ADMIN CHECK HATA DIYA GAYA HAI ❌
 
     const filter = {
       companyId: req.companyId,
     };
 
-    // 🔒 Branch-based admin (future-safe)
-    if (req.branchId) {
-      filter.branchId = req.branchId;
-    }
+    // 🔒 Branch-based Data Isolation: 
+    // Agar normal employee (HR) hai, toh sirf uski branch ka data dikhao
+    if (req.user.role !== "admin") {
+      filter.branchId = req.user.branchId;
+    } 
 
     const data = await ExitRequest.find(filter)
       .populate("employeeId", "name email profilePic")
@@ -72,29 +72,56 @@ const getAllExitRequests = async (req, res) => {
 };
 
 /* =========================
-   ADMIN → UPDATE
+   AUTHORIZED HR/ADMIN → UPDATE
+========================= */
+/* =========================
+   AUTHORIZED HR/ADMIN → UPDATE (WITH F&F CHECK)
 ========================= */
 const updateExitRequestByAdmin = async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({ success: false });
+    const { clearanceStatus, interviewFeedback, finalSettlement } = req.body;
+
+    // 🔥 F&F ASSET CLEARANCE CHECK 🔥
+    // Agar status "cleared" karne ki koshish ho rahi hai
+    if (clearanceStatus === "cleared") {
+      const exitDoc = await ExitRequest.findOne({
+        _id: req.params.id,
+        companyId: req.companyId,
+      });
+
+      if (exitDoc) {
+        // Check karo kya is employee ke paas koi 'Assigned' asset hai?
+        const pendingAssetsCount = await AssetAssignment.countDocuments({
+          employeeId: exitDoc.employeeId,
+          status: "Assigned" 
+        });
+
+        if (pendingAssetsCount > 0) {
+          return res.status(400).json({ 
+            success: false, 
+            message: `Clearance Failed! Employee has ${pendingAssetsCount} pending company asset(s) to return.` 
+          });
+        }
+      }
     }
 
+    // Agar check pass ho gaya (ya status 'cleared' nahi hai), toh update hone do
     const updated = await ExitRequest.findOneAndUpdate(
       {
         _id: req.params.id,
         companyId: req.companyId,
       },
       {
-        interviewFeedback: req.body.interviewFeedback,
-        clearanceStatus: req.body.clearanceStatus,
-        finalSettlement: req.body.finalSettlement,
+        interviewFeedback: interviewFeedback,
+        clearanceStatus: clearanceStatus,
+        finalSettlement: finalSettlement,
       },
       { new: true }
     );
 
     res.json({ success: true, data: updated });
-  } catch {
+  } catch (err) {
+    console.error("Exit update error:", err);
     res.status(500).json({ success: false });
   }
 };

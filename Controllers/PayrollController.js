@@ -30,9 +30,7 @@ exports.createPayroll = async (req, res) => {
       });
     }
 
-    // ✅ final basic salary priority:
-    // 1. frontend value
-    // 2. employee profile
+    
     let finalBasicSalary = Number(basicSalary);
     if (!finalBasicSalary) {
       finalBasicSalary = Number(employee.basicSalary || 0);

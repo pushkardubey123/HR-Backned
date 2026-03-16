@@ -10,6 +10,7 @@ const sendOTP = require("../utils/sendOtp");
 const LeaveBalance = require("../Modals/Leave/LeaveBalance");
 const LeavePolicy = require("../Modals/Leave/LeavePolicy");
 const moment = require("moment");
+const AssetAssignment = require("../Modals/Asset/AssetAssignment");
 
 const initializeLeaveBalance = async (companyId, employeeId) => {
   const currentYear = new Date().getFullYear();
@@ -187,16 +188,39 @@ const approvePendingUser = async (req, res) => {
       basicSalary,
     });
 
-    await user.save();
+await user.save();
     
     // ✅ CALL HELPER FUNCTION HERE TOO
     await initializeLeaveBalance(user._id, req.companyId);
 
+// 🔥 EXACT ASSET AUTO-TRIGGER LOGIC 🔥
+    try {
+      const OnboardingRule = require("../Modals/Asset/OnboardingRule");
+      const rules = await OnboardingRule.find({ companyId: req.companyId });
+      
+      if (rules.length > 0) {
+        const assetRequests = rules.map(rule => ({
+          companyId: req.companyId,
+          branchId: user.branchId,
+          employeeId: user._id,
+          issueDate: new Date(), 
+          status: "Requested",
+          requestedAssetName: rule.assetName, // Exact Name
+          requestedAssetType: rule.assetType, // Unique ya Bulk
+          notes: `Auto-triggered: Needs ${rule.assetName} for Onboarding`,
+        }));
+
+        await AssetAssignment.insertMany(assetRequests);
+      }
+    } catch (assetErr) {
+      console.error("Asset Auto-Trigger Error details:", assetErr);
+    }
+
     await pendingTbl.findByIdAndDelete(req.params.id);
 
-    res.json({ success: true, message: "User approved and Leaves Assigned" });
+    res.json({ success: true, message: "User approved, Leaves Assigned & Asset Requested" });
   } catch (err) {
-    console.error("Approve Error:", err); // Ye console.log error details dekhne me madad karega
+    console.error("Approve Error:", err);
     res.status(500).json({ success: false, message: "Approval failed" });
   }
 };
@@ -208,13 +232,10 @@ const approvePendingUser = async (req, res) => {
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
-
     const user = await userTbl.findOne({ email });
+
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid credentials",
-      });
+      return res.status(400).json({ success: false, message: "Invalid credentials" });
     }
 
     const token = jwt.sign(
@@ -222,40 +243,43 @@ const login = async (req, res) => {
         id: user._id,
         role: user.role,
         companyId: user.role === "admin" ? user._id : user.companyId,
+        designationId: user.designationId, // ✅ Token me bhi add karein
       },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
 
     res.json({
-  success: true,
-  token,
-  data: {
-    id: user._id,        // ✅ explicit id
-    name: user.name,
-    email: user.email,
-    role: user.role,
-    companyId: user.companyId,
-    profilePic: user.profilePic
-  },
-});
-;
-  } catch {
+      success: true,
+      token,
+      data: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        companyId: user.companyId,
+        profilePic: user.profilePic,
+        designationId: user.designationId // ✅ Response me bhi bhejien
+      },
+    });
+  } catch (err) {
     res.status(500).json({ success: false, message: "Login failed" });
   }
 };
 
 /* ================= GET ALL USERS ================= */
+/* ================= GET ALL USERS ================= */
 const getAllUsers = async (req, res) => {
   try {
-    const { branchId } = req.query;
+    const { branchId, designationId } = req.query; // ✅ This correctly extracts parameters
 
     const filter = {
       role: "employee",
       companyId: req.companyId,
     };
 
-    if (branchId) filter.branchId = branchId; // ✅ NEW
+    if (branchId) filter.branchId = branchId;
+    if (designationId) filter.designationId = designationId; // ✅ Filters based on designation 
 
     const users = await userTbl
       .find(filter)

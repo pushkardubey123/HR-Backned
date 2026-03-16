@@ -5,7 +5,6 @@ const UserSchema = new mongoose.Schema(
     companyId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      // required: true // REMOVE 'required: true' because initially for new Google Admin, it might be generated after instantiation
     },
     role: {
       type: String,

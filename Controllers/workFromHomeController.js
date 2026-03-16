@@ -11,10 +11,7 @@ const adminAssignWFH = async (req, res) => {
     });
 
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Employee not found in your company",
-      });
+      return res.status(404).json({ success: false, message: "Employee not found in your company" });
     }
 
     const newWFH = new WorkFromHome({
@@ -29,19 +26,11 @@ const adminAssignWFH = async (req, res) => {
     });
 
     await newWFH.save();
-
-    res.json({
-      success: true,
-      message: "WFH assigned successfully",
-    });
+    res.json({ success: true, message: "WFH assigned successfully" });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Internal Server Error",
-    });
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
-
 
 const applyWFH = async (req, res) => {
   try {
@@ -50,26 +39,18 @@ const applyWFH = async (req, res) => {
     const newWFH = new WorkFromHome({
       userId: req.user._id,
       companyId: req.companyId,
-      branchId: req.branchId,
+      branchId: req.user.branchId, // ✅ Use req.user.branchId securely
       fromDate,
       toDate,
       reason,
     });
 
     await newWFH.save();
-
-    res.json({
-      success: true,
-      message: "WFH request submitted",
-    });
+    res.json({ success: true, message: "WFH request submitted" });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server error",
-    });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 
 const getMyWFH = async (req, res) => {
   try {
@@ -84,23 +65,23 @@ const getMyWFH = async (req, res) => {
   }
 };
 
-
 const getAllWFH = async (req, res) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({
-      success: false,
-      message: "Access denied",
-    });
-  }
-
   try {
+    // ❌ Hardcoded admin check REMOVED
+
     const { branchId } = req.query;
 
     const filter = {
       companyId: req.companyId,
     };
 
-    if (branchId) filter.branchId = branchId;
+    // 🔒 Branch-based Data Isolation
+    if (req.user.role !== "admin") {
+      filter.branchId = req.user.branchId; 
+    } else if (branchId) {
+      // Sirf admin specific branch query pass kar sakta hai
+      filter.branchId = branchId;
+    }
 
     const data = await WorkFromHome.find(filter)
       .populate("userId", "name email")
@@ -113,13 +94,10 @@ const getAllWFH = async (req, res) => {
   }
 };
 
-
 const updateWFHStatus = async (req, res) => {
-  if (req.user.role !== "admin") {
-    return res.status(403).json({ success: false, message: "Access denied" });
-  }
-
   try {
+    // ❌ Hardcoded admin check REMOVED
+
     const { status, adminRemarks } = req.body;
 
     const updated = await WorkFromHome.findOneAndUpdate(
@@ -132,22 +110,14 @@ const updateWFHStatus = async (req, res) => {
     );
 
     if (!updated) {
-      return res.status(404).json({
-        success: false,
-        message: "WFH request not found",
-      });
+      return res.status(404).json({ success: false, message: "WFH request not found" });
     }
 
-    res.json({
-      success: true,
-      message: "WFH status updated",
-      data: updated,
-    });
+    res.json({ success: true, message: "WFH status updated", data: updated });
   } catch {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 
 module.exports = {
   applyWFH,

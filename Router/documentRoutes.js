@@ -1,18 +1,22 @@
 const express = require("express");
 const router = express.Router();
+const auth = require("../Middleware/auth");
+const attachCompanyId = require("../Middleware/companyMiddleware");
+const checkPermission = require("../Middleware/checkPermission"); // ✅ Added
+
 const {
   uploadDocument,
   getDocuments,
   deleteDocument,
   editDocumentType,
 } = require("../Controllers/documentController");
-const auth = require("../Middleware/auth");
-const attachCompanyId = require("../Middleware/companyMiddleware")
 
+// 🟢 SELF SERVICE (Upload and view own documents)
 router.post("/upload", auth, attachCompanyId, uploadDocument);
 router.get("/:employeeId", auth, attachCompanyId, getDocuments);
-router.delete("/:id", auth, attachCompanyId, deleteDocument);
-router.put("/:id", auth, attachCompanyId, editDocumentType);
 
+// 🔴 MANAGEMENT (Edit/Delete requires 'document' permissions)
+router.put("/:id", auth, attachCompanyId, checkPermission("document", "edit"), editDocumentType);
+router.delete("/:id", auth, attachCompanyId, checkPermission("document", "delete"), deleteDocument);
 
 module.exports = router;

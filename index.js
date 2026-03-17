@@ -16,8 +16,8 @@ const app = express();
 app.use(
   cors({
     origin: [
-      "http://localhost:5173",   
-      /\.netlify\.app$/        
+      "http://localhost:5173",
+      "https://single-company-based-frontend.onrender.com" // <--- Apna Render Frontend URL yahan add karein
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,

@@ -17,6 +17,7 @@ const app = express();
 // ✅ FIXED CORS CONFIG
 app.use(cors({
   origin: [
+    "https://single-company-based-frontend.onrender.com",
     "https://hareetechhr.onrender.com", // 👈 frontend url
     "http://localhost:5173" // 👈 local testing
   ],

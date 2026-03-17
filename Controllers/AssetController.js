@@ -63,13 +63,20 @@ const deleteAsset = async (req, res) => {
   }
 };
 
+/* ====================================================
+   PART 1: ASSET INVENTORY MANAGEMENT (IT ADMIN/HR)
+==================================================== */
+
 const getAllAssets = async (req, res) => {
   try {
     const { status, category, branchId } = req.query;
     const filter = { companyId: req.companyId };
+    
     if (status) filter.status = status;
     if (category) filter.category = category;
-    if (req.user.role !== "admin") filter.branchId = req.user.branchId;
+    
+    // ✅ FIX: Removed strict branchId filter for non-admins. 
+    // Agar frontend se specific branchId aati hai tabhi filter karo.
     if (branchId) filter.branchId = branchId;
 
     const assets = await Asset.find(filter).populate("branchId", "name").sort({ createdAt: -1 });
@@ -79,16 +86,20 @@ const getAllAssets = async (req, res) => {
   }
 };
 
+
 /* ====================================================
    PART 2: ASSET ASSIGNMENT & WORKFLOW (TICKETS)
 ==================================================== */
 
 const getAllAssignments = async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, branchId } = req.query;
     const filter = { companyId: req.companyId };
+    
     if (status) filter.status = status;
-    if (req.user.role !== "admin") filter.branchId = req.user.branchId;
+    
+    // ✅ FIX: Removed strict branchId filter here too.
+    if (branchId) filter.branchId = branchId;
 
     const assignments = await AssetAssignment.find(filter)
       .populate("employeeId", "name email profilePic")

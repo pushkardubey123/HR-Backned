@@ -13,17 +13,11 @@ const assetRoutes=require("./Router/assetRoutes");
 dotenv.config();
 const app = express();
 
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "https://single-company-based-frontend.onrender.com" // <--- Apna Render Frontend URL yahan add karein
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"],
-  })
-);
+app.use(cors({
+  origin: true, // Ye har origin ko allow kar dega (Testing ke liye best hai)
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+}));
 
 dbConnect();
 require("./utils/taskDeadlineNotifier")();

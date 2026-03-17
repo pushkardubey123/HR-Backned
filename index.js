@@ -14,20 +14,42 @@ const assetRoutes = require("./Router/assetRoutes");
 dotenv.config();
 const app = express();
 
-// ✅ FIXED CORS CONFIG
+// ✅ CORS CONFIG (FINAL FIX)
+const allowedOrigins = [
+  "https://hareetechhr.onrender.com",
+  "http://localhost:5173"
+];
+
 app.use(cors({
-  origin: [
-    "https://single-company-based-frontend.onrender.com",
-    "https://hareetechhr.onrender.com", // 👈 frontend url
-    "http://localhost:5173" // 👈 local testing
-  ],
+  origin: function (origin, callback) {
+    // allow requests with no origin (mobile apps, postman)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
+// ✅ PREFLIGHT FIX (IMPORTANT)
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", req.headers.origin);
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(200);
+  }
+  next();
+});
 
-// ✅ COOP FIX (Google Auth issue fix)
+// ✅ COOP FIX (Google Auth popup fix)
 app.use((req, res, next) => {
   res.header("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
   res.header("Cross-Origin-Embedder-Policy", "unsafe-none");
@@ -51,7 +73,7 @@ app.use(
 
 app.use("/static", express.static(path.join(__dirname, "uploads")));
 
-// ROUTES (unchanged)
+// ROUTES (UNCHANGED)
 app.use("/api/departments", require("./Router/departmentRouter"));
 app.use("/api/designations", require("./Router/designationRouter"));
 app.use("/api/shifts", require("./Router/ShiftRouter"));

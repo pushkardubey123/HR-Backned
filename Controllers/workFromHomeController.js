@@ -39,7 +39,7 @@ const applyWFH = async (req, res) => {
     const newWFH = new WorkFromHome({
       userId: req.user._id,
       companyId: req.companyId,
-      branchId: req.user.branchId, // ✅ Use req.user.branchId securely
+      branchId: req.user.branchId, 
       fromDate,
       toDate,
       reason,
@@ -48,7 +48,11 @@ const applyWFH = async (req, res) => {
     await newWFH.save();
     res.json({ success: true, message: "WFH request submitted" });
   } catch (error) {
-    res.status(500).json({ success: false, message: "Server error" });
+    // 🔥 YEH LINE ADD KAREIN: Isse Render ke logs me exact error dikhega
+    console.error("WFH APPLY ERROR ->", error); 
+    
+    // Error message ko frontend par bhejne ke liye error.message add karein
+    res.status(500).json({ success: false, message: error.message || "Server error" });
   }
 };
 

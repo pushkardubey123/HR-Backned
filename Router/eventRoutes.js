@@ -2,16 +2,17 @@ const express = require("express");
 const router = express.Router();
 const authMiddleware = require("../Middleware/auth");
 const attachCompanyContext = require("../Middleware/companyMiddleware");
-const checkPermission = require("../Middleware/checkPermission"); // ✅ Added
+const checkPermission = require("../Middleware/checkPermission"); 
+const checkSubscription = require("../Middleware/checkSubscription"); // ✅ Added
 const { createEvent, getAllEvents, updateEvent, deleteEvent, gelOneEvent } = require("../Controllers/eventController");
 
-// 🟢 SELF SERVICE (View Events)
-router.get("/", authMiddleware, attachCompanyContext, getAllEvents);
-router.get("/employee/:id", authMiddleware, attachCompanyContext, gelOneEvent);
+// 🟢 SELF SERVICE
+router.get("/", authMiddleware, attachCompanyContext, checkSubscription, getAllEvents);
+router.get("/employee/:id", authMiddleware, attachCompanyContext, checkSubscription, gelOneEvent);
 
-// 🔴 MANAGEMENT (Require 'event' permissions)
-router.post("/create", authMiddleware, attachCompanyContext, checkPermission("event", "create"), createEvent);
-router.put("/:id", authMiddleware, attachCompanyContext, checkPermission("event", "edit"), updateEvent);
-router.delete("/:id", authMiddleware, attachCompanyContext, checkPermission("event", "delete"), deleteEvent);
+// 🔴 MANAGEMENT
+router.post("/create", authMiddleware, attachCompanyContext, checkSubscription, checkPermission("event", "create"), createEvent);
+router.put("/:id", authMiddleware, attachCompanyContext, checkSubscription, checkPermission("event", "edit"), updateEvent);
+router.delete("/:id", authMiddleware, attachCompanyContext, checkSubscription, checkPermission("event", "delete"), deleteEvent);
 
 module.exports = router;

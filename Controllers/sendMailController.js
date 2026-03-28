@@ -4,6 +4,9 @@ const path = require("path");
 const fs = require("fs");
 const userTbl = require("../Modals/User");
 const mongoose = require("mongoose");
+const CompanySubscription = require("../Modals/SuperAdmin/CompanySubscription"); // ✅ NAYA IMPORT
+
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB per attachment
 
 /* ================= SEND MAIL ================= */
 const sendMail = async (req, res) => {
@@ -14,12 +17,21 @@ const sendMail = async (req, res) => {
     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
     const attachments = [];
+    let storageAddedMB = 0; // 🔥 Storage tracker
 
     if (req.files) {
       for (let file of Object.values(req.files)) {
+        // ✅ STATIC LIMIT CHECK (10MB per file)
+        if (file.size > MAX_ATTACHMENT_SIZE) {
+           return res.status(400).json({ success: false, message: `Attachment ${file.name} exceeds 10MB limit.` });
+        }
+        
         const savePath = path.join(uploadDir, file.name);
         await file.mv(savePath);
         attachments.push(file.name);
+        
+        // Calculate size in MB
+        storageAddedMB += (file.size / (1024 * 1024));
       }
     }
 
@@ -46,6 +58,14 @@ const sendMail = async (req, res) => {
       permanentlyDeletedBy: [],
     });
 
+    // 🔥 ADD STORAGE TO DATABASE 🔥
+    if (storageAddedMB > 0) {
+       await CompanySubscription.findOneAndUpdate(
+         { companyId: req.companyId },
+         { $inc: { "usage.storageUsedMB": storageAddedMB } }
+       );
+    }
+
     res.json({ success: true, message: "Mail sent successfully" });
   } catch (err) {
     console.error("Mail send error:", err);
@@ -53,58 +73,138 @@ const sendMail = async (req, res) => {
   }
 };
 
+/* ================= SAVE DRAFT ================= */
+const saveDraft = async (req, res) => {
+  try {
+    const { to, subject, message } = req.body;
+    
+    const uploadDir = path.join(__dirname, "..", "uploads", "mails");
+    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+    const attachments = [];
+    let storageAddedMB = 0; // 🔥 Storage tracker
+
+    if (req.files) {
+      for (let file of Object.values(req.files)) {
+        // ✅ STATIC LIMIT CHECK
+        if (file.size > MAX_ATTACHMENT_SIZE) {
+           return res.status(400).json({ success: false, message: `Attachment ${file.name} exceeds 10MB limit.` });
+        }
+
+        const savePath = path.join(uploadDir, file.name);
+        await file.mv(savePath);
+        attachments.push(file.name);
+
+        // Calculate size in MB
+        storageAddedMB += (file.size / (1024 * 1024));
+      }
+    }
+
+    await MailModel.create({
+      companyId: req.companyId,
+      branchId: req.user.role === "admin" ? null : req.branchId,
+      sender: req.user._id,
+      recipients: Array.isArray(to) ? to : [to], 
+      subject,
+      message,
+      attachments,
+      isDraft: true, 
+      trashedBy: [],
+      starredBy: [],
+      spamBy: [],
+    });
+
+    // 🔥 ADD STORAGE TO DATABASE 🔥
+    if (storageAddedMB > 0) {
+       await CompanySubscription.findOneAndUpdate(
+         { companyId: req.companyId },
+         { $inc: { "usage.storageUsedMB": storageAddedMB } }
+       );
+    }
+
+    res.json({ success: true, message: "Draft saved successfully" });
+  } catch (err) {
+    console.error("Save draft error:", err);
+    res.status(500).json({ success: false, message: "Failed to save draft" });
+  }
+};
+
+/* ================= PERMANENT DELETE (MINUS STORAGE) ================= */
+const deleteMailPermanently = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const mail = await MailModel.findOne({
+      _id: req.params.id,
+      companyId: req.companyId,
+    });
+
+    if (!mail)
+      return res.status(404).json({ success: false, message: "Mail not found" });
+
+    // Agar sender admin/employee khud permanently delete kar raha hai (or if everyone deletes it)
+    // Here we assume if it's permanently deleted, we clean up the files to save storage.
+    
+    let sizeToMinusMB = 0;
+
+    // Remove files from the filesystem to free up space
+    if (mail.attachments && mail.attachments.length > 0) {
+       mail.attachments.forEach(fileName => {
+          const filePath = path.join(__dirname, "..", "uploads", "mails", fileName);
+          if (fs.existsSync(filePath)) {
+             sizeToMinusMB += (fs.statSync(filePath).size / (1024 * 1024));
+             fs.unlinkSync(filePath); // Actual file delete
+          }
+       });
+    }
+
+    // Now completely remove from DB
+    await mail.deleteOne();
+
+    // 🔥 MINUS STORAGE FROM DATABASE 🔥
+    if (sizeToMinusMB > 0) {
+      await CompanySubscription.findOneAndUpdate(
+        { companyId: req.companyId },
+        { $inc: { "usage.storageUsedMB": -sizeToMinusMB } } // Minus size
+      );
+    }
+
+    res.json({ success: true, message: "Mail permanently deleted & storage freed" });
+  } catch (err) {
+    console.error("Permanent delete error:", err);
+    res.status(500).json({ success: false, message: "Permanent delete failed" });
+  }
+};
+
+/* ================= GET ALL USERS ================= */
 const getAllUsers = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
-    const companyId = req.companyId; // 👈 admin ka _id hota hai for employees
+    const companyId = req.companyId;
 
     let users = [];
 
     if (req.user.role === "admin") {
-      // ✅ Admin → sirf employees dikhaye
-      users = await userTbl.find(
-        {
-          companyId,
-          role: "employee",
-        },
-        "name email role"
-      );
+      users = await userTbl.find({ companyId, role: "employee" }, "name email role");
     } else {
-      // ✅ Employee → admin + same branch employees
-
       users = await userTbl.find(
         {
           $or: [
-            { _id: companyId }, // 🔥 THIS IS THE KEY (ADMIN)
-            {
-              companyId,
-              branchId: req.branchId,
-              role: "employee",
-            },
+            { _id: companyId },
+            { companyId, branchId: req.branchId, role: "employee" },
           ],
         },
         "name email role"
       );
     }
 
-    // ✅ khud ko list se hata do
-    users = users.filter(
-      (u) => u._id.toString() !== loggedInUserId.toString()
-    );
-
+    users = users.filter((u) => u._id.toString() !== loggedInUserId.toString());
     res.json({ success: true, data: users });
   } catch (err) {
     console.error("getAllUsers error:", err);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching users",
-    });
+    res.status(500).json({ success: false, message: "Error fetching users" });
   }
 };
-
-
-
-
 
 /* ================= MOVE TO TRASH ================= */
 const moveToTrash = async (req, res) => {
@@ -116,8 +216,7 @@ const moveToTrash = async (req, res) => {
       companyId: req.companyId,
     });
 
-    if (!mail)
-      return res.status(404).json({ success: false, message: "Mail not found" });
+    if (!mail) return res.status(404).json({ success: false, message: "Mail not found" });
 
     if (!mail.trashedBy.some(id => id?.toString() === userId.toString())) {
       mail.trashedBy.push(userId);
@@ -150,10 +249,7 @@ const getTrashedMails = async (req, res) => {
       ];
     }
 
-    const mails = await MailModel.find(filter)
-      .populate("sender", "name email")
-      .sort({ createdAt: -1 });
-
+    const mails = await MailModel.find(filter).populate("sender", "name email").sort({ createdAt: -1 });
     res.json({ success: true, data: mails });
   } catch (err) {
     console.error("Trash fetch error:", err);
@@ -171,51 +267,15 @@ const restoreMail = async (req, res) => {
       companyId: req.companyId,
     });
 
-    if (!mail)
-      return res.status(404).json({ success: false, message: "Mail not found" });
+    if (!mail) return res.status(404).json({ success: false, message: "Mail not found" });
 
-    mail.trashedBy = mail.trashedBy.filter(
-      (id) => id && id.toString() !== userId.toString()
-    );
-
+    mail.trashedBy = mail.trashedBy.filter((id) => id && id.toString() !== userId.toString());
     await mail.save();
+
     res.json({ success: true, message: "Mail restored" });
   } catch (err) {
     console.error("Restore error:", err);
     res.status(500).json({ success: false, message: "Restore failed" });
-  }
-};
-
-/* ================= PERMANENT DELETE ================= */
-const deleteMailPermanently = async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    const mail = await MailModel.findOne({
-      _id: req.params.id,
-      companyId: req.companyId,
-    });
-
-    if (!mail)
-      return res.status(404).json({ success: false, message: "Mail not found" });
-
-    if (!mail.permanentlyDeletedBy.some(id => id?.toString() === userId.toString())) {
-      mail.permanentlyDeletedBy.push(userId);
-    }
-
-    mail.trashedBy = mail.trashedBy.filter(
-      (id) => id && id.toString() !== userId.toString()
-    );
-
-    await mail.save();
-
-    res.json({
-      success: true,
-      message: "Mail permanently deleted",
-    });
-  } catch (err) {
-    console.error("Permanent delete error:", err);
-    res.status(500).json({ success: false, message: "Permanent delete failed" });
   }
 };
 
@@ -251,46 +311,7 @@ const downloadAttachment = (req, res) => {
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ success: false, message: "File not found" });
   }
-
   res.download(filePath, filename);
-};
-const saveDraft = async (req, res) => {
-  try {
-    const { to, subject, message } = req.body;
-    
-    // File upload logic (Same as sendMail)
-    const uploadDir = path.join(__dirname, "..", "uploads", "mails");
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-    const attachments = [];
-    if (req.files) {
-      for (let file of Object.values(req.files)) {
-        const savePath = path.join(uploadDir, file.name);
-        await file.mv(savePath);
-        attachments.push(file.name);
-      }
-    }
-
-    // Email send nahi karna hai, sirf DB me save karna hai with isDraft: true
-    await MailModel.create({
-      companyId: req.companyId,
-      branchId: req.user.role === "admin" ? null : req.branchId,
-      sender: req.user._id,
-      recipients: Array.isArray(to) ? to : [to], // Draft me recipient optional ho sakta hai, handle frontend side
-      subject,
-      message,
-      attachments,
-      isDraft: true, // <--- Draft flag
-      trashedBy: [],
-      starredBy: [],
-      spamBy: [],
-    });
-
-    res.json({ success: true, message: "Draft saved successfully" });
-  } catch (err) {
-    console.error("Save draft error:", err);
-    res.status(500).json({ success: false, message: "Failed to save draft" });
-  }
 };
 
 /* ================= GET DRAFTS ================= */
@@ -304,8 +325,7 @@ const getDrafts = async (req, res) => {
       isDraft: true,
       trashedBy: { $ne: userId },
       permanentlyDeletedBy: { $ne: userId },
-    })
-    .sort({ createdAt: -1 });
+    }).sort({ createdAt: -1 });
 
     res.json({ success: true, data: drafts });
   } catch (err) {
@@ -321,7 +341,6 @@ const toggleStar = async (req, res) => {
 
     if (!mail) return res.status(404).json({ success: false, message: "Mail not found" });
 
-    // Check if already starred
     const index = mail.starredBy.indexOf(userId);
     if (index === -1) {
       mail.starredBy.push(userId); // Add Star
@@ -343,7 +362,7 @@ const getStarredMails = async (req, res) => {
 
     const mails = await MailModel.find({
       companyId: req.companyId,
-      starredBy: userId, // Jisme user ka ID starred array me ho
+      starredBy: userId, 
       trashedBy: { $ne: userId },
       permanentlyDeletedBy: { $ne: userId },
     })
@@ -399,7 +418,6 @@ const getSpamMails = async (req, res) => {
 };
 
 /* ================= UPDATE: MY MAILS (INBOX) ================= */
-// Isko update karna zaruri hai taaki Inbox me Drafts aur Spam NA dikhein
 const getMyMails = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -409,8 +427,8 @@ const getMyMails = async (req, res) => {
       companyId: req.companyId,
       trashedBy: { $ne: userId },
       permanentlyDeletedBy: { $ne: userId },
-      spamBy: { $ne: userId }, // Spam inbox me nahi dikhna chahiye
-      isDraft: false,          // Drafts inbox me nahi dikhna chahiye
+      spamBy: { $ne: userId }, 
+      isDraft: false,          
       
       $or: [
         { sender: userId },
@@ -427,8 +445,8 @@ const getMyMails = async (req, res) => {
     res.status(500).json({ success: false });
   }
 };
+
 module.exports = {
-  // ... Purane exports ...
   sendMail,
   getAllMails,
   getMyMails,
@@ -438,8 +456,6 @@ module.exports = {
   moveToTrash,
   restoreMail,
   getAllUsers,
-  
-  // ... New exports ...
   saveDraft,
   getDrafts,
   toggleStar,

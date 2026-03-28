@@ -3,29 +3,17 @@ const router = express.Router();
 
 const auth = require("../Middleware/auth");
 const attachCompanyId = require("../Middleware/companyMiddleware");
-const checkPermission = require("../Middleware/checkPermission"); // ✅ Added
+const checkPermission = require("../Middleware/checkPermission"); 
+const checkSubscription = require("../Middleware/checkSubscription"); // ✅ Added
 
-const {
-  addDesignation,
-  getDesignations,
-  updateDesignation,
-  deleteDesignation,
-  getPublicDesignations,
-} = require("../Controllers/desinationController");
+const { addDesignation, getDesignations, updateDesignation, deleteDesignation, getPublicDesignations } = require("../Controllers/desinationController");
 
-// CREATE (Requires 'create' permission for 'designation' module)
-router.post("/", auth, attachCompanyId, checkPermission("designation", "create"), addDesignation);
+router.post("/", auth, attachCompanyId, checkSubscription, checkPermission("designation", "create"), addDesignation);
+router.put("/:id", auth, attachCompanyId, checkSubscription, checkPermission("designation", "edit"), updateDesignation);
+router.delete("/:id", auth, attachCompanyId, checkSubscription, checkPermission("designation", "delete"), deleteDesignation);
+router.get("/", auth, attachCompanyId, checkSubscription, getDesignations);
 
-// UPDATE (Requires 'edit' permission for 'designation' module)
-router.put("/:id", auth, attachCompanyId, checkPermission("designation", "edit"), updateDesignation);
-
-// DELETE (Requires 'delete' permission for 'designation' module)
-router.delete("/:id", auth, attachCompanyId, checkPermission("designation", "delete"), deleteDesignation);
-
-// GET (Open to all authenticated users for UI Dropdowns)
-router.get("/", auth, attachCompanyId, getDesignations);
-
-// PUBLIC (For Registration)
+// PUBLIC
 router.get("/public", getPublicDesignations);
 
 module.exports = router;

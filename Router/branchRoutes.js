@@ -3,11 +3,26 @@ const router = express.Router();
 const Branch = require("../Modals/Branch");
 const auth = require("../Middleware/auth");
 const attachCompanyId = require("../Middleware/companyMiddleware");
-const checkPermission = require("../Middleware/checkPermission"); // ✅ Added
+const checkPermission = require("../Middleware/checkPermission"); 
+const checkSubscription = require("../Middleware/checkSubscription"); // ✅ Subscription Guard
 
-// CREATE BRANCH (Requires 'create' permission for 'branch' module)
-router.post("/branch/create", auth, attachCompanyId, checkPermission("branch", "create"), async (req, res) => {
+// CREATE BRANCH (WITH STRICT LIMIT CHECK)
+router.post("/branch/create", auth, attachCompanyId, checkSubscription, checkPermission("branch", "create"), async (req, res) => {
   try {
+    // 🔥 STRICT LIMIT CHECK LOGIC 🔥
+    const maxBranches = req.planLimits?.maxBranches ?? 0;
+    
+    if (maxBranches !== -1) { // -1 means unlimited
+      const currentBranchCount = await Branch.countDocuments({ companyId: req.companyId });
+      
+      if (maxBranches === 0 || currentBranchCount >= maxBranches) {
+        return res.status(403).json({ 
+          success: false, 
+          message: `Plan Limit Reached! Your current plan allows a maximum of ${maxBranches} branches. Please upgrade your plan.` 
+        });
+      }
+    }
+
     const branch = await Branch.create({
       ...req.body,
       companyId: req.companyId, 
@@ -22,8 +37,8 @@ router.post("/branch/create", auth, attachCompanyId, checkPermission("branch", "
   }
 });
 
-// GET BRANCHES (Open to all authenticated users for dropdowns)
-router.get("/branch", auth, attachCompanyId, async (req, res) => {
+// GET BRANCHES 
+router.get("/branch", auth, attachCompanyId, checkSubscription, async (req, res) => {
   try {
     const branches = await Branch.find({ companyId: req.companyId });
     res.json({ success: true, data: branches });
@@ -32,8 +47,8 @@ router.get("/branch", auth, attachCompanyId, async (req, res) => {
   }
 });
 
-// UPDATE BRANCH (Requires 'edit' permission for 'branch' module)
-router.put("/branch/update/:id", auth, attachCompanyId, checkPermission("branch", "edit"), async (req, res) => {
+// UPDATE BRANCH 
+router.put("/branch/update/:id", auth, attachCompanyId, checkSubscription, checkPermission("branch", "edit"), async (req, res) => {
   try {
     const branch = await Branch.findOneAndUpdate(
       { _id: req.params.id, companyId: req.companyId },
@@ -47,8 +62,8 @@ router.put("/branch/update/:id", auth, attachCompanyId, checkPermission("branch"
   }
 });
 
-// DELETE BRANCH (Requires 'delete' permission for 'branch' module)
-router.delete("/branch/delete/:id", auth, attachCompanyId, checkPermission("branch", "delete"), async (req, res) => {
+// DELETE BRANCH 
+router.delete("/branch/delete/:id", auth, attachCompanyId, checkSubscription, checkPermission("branch", "delete"), async (req, res) => {
   try {
     const branch = await Branch.findOneAndDelete({
       _id: req.params.id,

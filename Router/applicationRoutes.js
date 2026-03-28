@@ -2,24 +2,19 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../Middleware/auth");
 const attachCompanyId = require("../Middleware/companyMiddleware");
-const checkPermission = require("../Middleware/checkPermission"); // ✅ Added
+const checkPermission = require("../Middleware/checkPermission"); 
+const checkSubscription = require("../Middleware/checkSubscription"); // ✅ Added
 
-const {
-  applyJob,
-  getApplications,
-  getApplicationById,
-  rejectApplication,
-  shortlistApplication,
-} = require("../Controllers/applicationController");
+const { applyJob, getApplications, getApplicationById, rejectApplication, shortlistApplication } = require("../Controllers/applicationController");
 
-// PUBLIC (Any candidate can apply)
+// PUBLIC
 router.post("/", applyJob);
 
-// MANAGEMENT (Require 'recruitment' permissions)
-router.get("/", auth, attachCompanyId, checkPermission("recruitment", "view"), getApplications);
-router.get("/:id", auth, attachCompanyId, checkPermission("recruitment", "view"), getApplicationById);
+// MANAGEMENT
+router.get("/", auth, attachCompanyId, checkSubscription, checkPermission("recruitment", "view"), getApplications);
+router.get("/:id", auth, attachCompanyId, checkSubscription, checkPermission("recruitment", "view"), getApplicationById);
 
-router.put("/:id/reject", auth, attachCompanyId, checkPermission("recruitment", "edit"), rejectApplication);
-router.put("/:id/shortlist", auth, attachCompanyId, checkPermission("recruitment", "edit"), shortlistApplication);
+router.put("/:id/reject", auth, attachCompanyId, checkSubscription, checkPermission("recruitment", "edit"), rejectApplication);
+router.put("/:id/shortlist", auth, attachCompanyId, checkSubscription, checkPermission("recruitment", "edit"), shortlistApplication);
 
 module.exports = router;

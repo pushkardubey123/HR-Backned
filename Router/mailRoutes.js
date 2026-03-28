@@ -2,50 +2,29 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../Middleware/auth");
 const attachCompanyId = require("../Middleware/companyMiddleware");
+const checkSubscription = require("../Middleware/checkSubscription"); // ✅ Added
 
-const {
-  sendMail,
-  getAllMails,
-  getMyMails,
-  downloadAttachment,
-  getTrashedMails,
-  moveToTrash,
-  restoreMail,
-  deleteMailPermanently,
-  getAllUsers,
-  
-  // New Controllers
-  saveDraft,
-  getDrafts,
-  toggleStar,
-  getStarredMails,
-  toggleSpam,
-  getSpamMails
-} = require("../Controllers/sendMailController");
+const { sendMail, getAllMails, getMyMails, downloadAttachment, getTrashedMails, moveToTrash, restoreMail, deleteMailPermanently, getAllUsers, saveDraft, getDrafts, toggleStar, getStarredMails, toggleSpam, getSpamMails } = require("../Controllers/sendMailController");
 
-// Basic Routes
-router.post("/send", auth, attachCompanyId, sendMail);
-router.get("/user/all", auth, attachCompanyId, getAllUsers);
-router.get("/", auth, attachCompanyId, getAllMails);
-router.get("/my-mails", auth, attachCompanyId, getMyMails);
-router.get("/download/:filename", downloadAttachment);
+router.post("/send", auth, attachCompanyId, checkSubscription, sendMail);
+router.get("/user/all", auth, attachCompanyId, checkSubscription, getAllUsers);
+router.get("/", auth, attachCompanyId, checkSubscription, getAllMails);
+router.get("/my-mails", auth, attachCompanyId, checkSubscription, getMyMails);
 
-// Draft Routes
-router.post("/draft", auth, attachCompanyId, saveDraft);
-router.get("/draft", auth, attachCompanyId, getDrafts);
+router.get("/download/:filename", downloadAttachment); // PUBLIC OR NO COMPANY ID NEEDED
 
-// Starred Routes
-router.get("/starred", auth, attachCompanyId, getStarredMails);
-router.put("/star/:id", auth, attachCompanyId, toggleStar); // PUT req to toggle
+router.post("/draft", auth, attachCompanyId, checkSubscription, saveDraft);
+router.get("/draft", auth, attachCompanyId, checkSubscription, getDrafts);
 
-// Spam Routes
-router.get("/spam", auth, attachCompanyId, getSpamMails);
-router.put("/spam/:id", auth, attachCompanyId, toggleSpam); // PUT req to toggle
+router.get("/starred", auth, attachCompanyId, checkSubscription, getStarredMails);
+router.put("/star/:id", auth, attachCompanyId, checkSubscription, toggleStar); 
 
-// Trash & Delete Routes
-router.get("/trash", auth, attachCompanyId, getTrashedMails);
-router.put("/trash/:id", auth, attachCompanyId, moveToTrash);
-router.put("/restore/:id", auth, attachCompanyId, restoreMail);
-router.delete("/permanent-delete/:id", auth, attachCompanyId, deleteMailPermanently);
+router.get("/spam", auth, attachCompanyId, checkSubscription, getSpamMails);
+router.put("/spam/:id", auth, attachCompanyId, checkSubscription, toggleSpam); 
+
+router.get("/trash", auth, attachCompanyId, checkSubscription, getTrashedMails);
+router.put("/trash/:id", auth, attachCompanyId, checkSubscription, moveToTrash);
+router.put("/restore/:id", auth, attachCompanyId, checkSubscription, restoreMail);
+router.delete("/permanent-delete/:id", auth, attachCompanyId, checkSubscription, deleteMailPermanently);
 
 module.exports = router;

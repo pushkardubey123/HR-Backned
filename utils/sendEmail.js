@@ -28,7 +28,6 @@ const sendEmail = async (
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`Email successfully sent to ${to}`); // Success log add kar diya
     
   } catch (err) {
     console.error("Email send error:", err.message);

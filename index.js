@@ -10,6 +10,7 @@ const holidayRoutes = require("./Router/Leave/holiday.routes");
 const AuthorityRoutes = require("./Router/authorityRoutes");
 const permissionRouter = require("./Router/permissionRoutes");
 const assetRoutes = require("./Router/assetRoutes");
+const superAdminRoutes = require("./Router/superAdminRoutes");
 
 dotenv.config();
 const app = express();
@@ -17,7 +18,8 @@ const app = express();
 // ✅ CORS CONFIG (FINAL FIX)
 const allowedOrigins = [
   "https://hareetechhr.onrender.com",
-  "http://localhost:5173"
+  "http://localhost:5173",
+  "http://localhost:5174"
 ];
 
 app.use(cors({
@@ -74,6 +76,7 @@ app.use(
 app.use("/static", express.static(path.join(__dirname, "uploads")));
 
 // ROUTES (UNCHANGED)
+
 app.use("/api/departments", require("./Router/departmentRouter"));
 app.use("/api/designations", require("./Router/designationRouter"));
 app.use("/api/shifts", require("./Router/ShiftRouter"));
@@ -104,7 +107,9 @@ app.use("/api/settings", require("./Router/companySettings"));
 app.use("/api/officetimming", require("./Router/officeTimingRoutes"));
 app.use("/api/leave-types", require("./Router/Leave/LeaveTypeRouter"));
 app.use("/api/leave-policies", require("./Router/Leave/leavePolicyRoutes"));
+app.use("/api/payment", require("./Router/paymentRoutes"));
 app.use("/api/holidays", holidayRoutes);
+app.use("/api/superadmin", superAdminRoutes);
 
 const PORT = process.env.PORT || 3003;
 app.listen(PORT, () => {

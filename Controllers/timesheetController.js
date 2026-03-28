@@ -28,9 +28,6 @@ const records = await attendanceTbl.find(filter)
             const totalMins = r.workedMinutes || 0;
             const otMins = r.overtimeMinutes || 0;
             
-            // --- LOGIC CORRECTION ---
-            // Regular Time = Total - OT
-            // Agar galti se OT > Total ho jaye (DB corruption), to Regular = 0 maano
             let regularMins = totalMins - otMins;
             if (regularMins < 0) regularMins = 0;
 

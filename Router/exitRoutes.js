@@ -1,23 +1,18 @@
 const router = require("express").Router();
 const auth = require("../Middleware/auth");
 const attachCompanyId = require("../Middleware/companyMiddleware");
-const checkPermission = require("../Middleware/checkPermission"); // ✅ Added
+const checkPermission = require("../Middleware/checkPermission"); 
+const checkSubscription = require("../Middleware/checkSubscription"); // ✅ Added
 
-const {
-  createExitRequest,
-  getAllExitRequests,
-  getExitRequestsByEmployee,
-  updateExitRequestByAdmin,
-  deleteExitRequest,
-} = require("../Controllers/exitController");
+const { createExitRequest, getAllExitRequests, getExitRequestsByEmployee, updateExitRequestByAdmin, deleteExitRequest } = require("../Controllers/exitController");
 
-// 🟢 SELF SERVICE (Employees applying for exit)
-router.post("/submit", auth, attachCompanyId, createExitRequest);
-router.get("/my-requests", auth, attachCompanyId, getExitRequestsByEmployee);
+// 🟢 SELF SERVICE
+router.post("/submit", auth, attachCompanyId, checkSubscription, createExitRequest);
+router.get("/my-requests", auth, attachCompanyId, checkSubscription, getExitRequestsByEmployee);
 
-// 🔴 MANAGEMENT (Require 'exit' permissions)
-router.get("/", auth, attachCompanyId, checkPermission("exit", "view"), getAllExitRequests);
-router.put("/:id", auth, attachCompanyId, checkPermission("exit", "edit"), updateExitRequestByAdmin);
-router.delete("/:id", auth, attachCompanyId, checkPermission("exit", "delete"), deleteExitRequest);
+// 🔴 MANAGEMENT
+router.get("/", auth, attachCompanyId, checkSubscription, checkPermission("exit", "view"), getAllExitRequests);
+router.put("/:id", auth, attachCompanyId, checkSubscription, checkPermission("exit", "edit"), updateExitRequestByAdmin);
+router.delete("/:id", auth, attachCompanyId, checkSubscription, checkPermission("exit", "delete"), deleteExitRequest);
 
 module.exports = router;

@@ -1,14 +1,18 @@
 const express = require("express");
 const router = express.Router();
 const CompanySettings = require("../Modals/CompanySettings");
+const CompanySubscription = require("../Modals/SuperAdmin/CompanySubscription"); // ✅ NAYA
 const fs = require("fs");
 const path = require("path");
 const auth = require("../Middleware/auth");
 const attachCompanyId = require("../Middleware/companyMiddleware");
 const checkPermission = require("../Middleware/checkPermission");
+const checkSubscription = require("../Middleware/checkSubscription"); 
 
-// GET SETTINGS
-router.get("/", auth, attachCompanyId, async (req, res) => {
+// Max file size for Logo (e.g., 2MB)
+const MAX_FILE_SIZE = 2 * 1024 * 1024; 
+
+router.get("/", auth, attachCompanyId, checkSubscription, async (req, res) => {
   try {
     const settings = await CompanySettings.findOne({ companyId: req.companyId });
     res.json({ success: true, data: settings });
@@ -17,20 +21,15 @@ router.get("/", auth, attachCompanyId, async (req, res) => {
   }
 });
 
-// UPDATE SETTINGS (Fixed Toggle Logic)
-router.put("/", auth, attachCompanyId,checkPermission("settings", "edit"), async (req, res) => {
+router.put("/", auth, attachCompanyId, checkSubscription, checkPermission("settings", "edit"), async (req, res) => {
   try {
     const uploadDir = path.join(__dirname, "..", "uploads", "logo");
     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
-    let authorizedPersons = [];
-    if (req.body.authorizedPersons) {
-      authorizedPersons = typeof req.body.authorizedPersons === "string" 
-        ? JSON.parse(req.body.authorizedPersons) 
-        : req.body.authorizedPersons;
-    }
+    let authorizedPersons = typeof req.body.authorizedPersons === "string" 
+      ? JSON.parse(req.body.authorizedPersons) 
+      : req.body.authorizedPersons || [];
 
-    // FIX: Boolean conversion for attendance toggles
     const updateData = {
       companyId: req.companyId,
       name: req.body.name || "",
@@ -45,19 +44,41 @@ router.put("/", auth, attachCompanyId,checkPermission("settings", "edit"), async
       cinNumber: req.body.cinNumber || "",
       attendance: {
         gpsRequired: req.body.gpsRequired === "true" || req.body.gpsRequired === true,
-        faceRequired: req.body.faceRequired === "true" || req.body.faceRequired === true, // Fixed logic
+        faceRequired: req.body.faceRequired === "true" || req.body.faceRequired === true,
         lateMarkTime: req.body.lateMarkTime || "09:30",
         earlyLeaveTime: req.body.earlyLeaveTime || "17:30",
       },
       authorizedPersons: authorizedPersons,
     };
 
+    let storageChangeMB = 0;
+
+    // 🔥 File Handle & Storage Calculation
     if (req.files && req.files.logo) {
       const logoFile = req.files.logo;
+      
+      // ✅ STATIC LIMIT CHECK (2MB)
+      if (logoFile.size > MAX_FILE_SIZE) {
+         return res.status(400).json({ success: false, message: "Logo size must be less than 2MB" });
+      }
+
+      // Find old settings to subtract old logo size
+      const oldSettings = await CompanySettings.findOne({ companyId: req.companyId });
+      if (oldSettings && oldSettings.logo) {
+         const oldFilePath = path.join(__dirname, "..", oldSettings.logo.replace("/static", "uploads"));
+         if (fs.existsSync(oldFilePath)) {
+            storageChangeMB -= (fs.statSync(oldFilePath).size / (1024 * 1024));
+            fs.unlinkSync(oldFilePath); // Delete old logo
+         }
+      }
+
       const fileName = `${Date.now()}_${logoFile.name}`;
       const savePath = path.join(uploadDir, fileName);
       await logoFile.mv(savePath);
       updateData.logo = `/static/logo/${fileName}`;
+      
+      // Add new logo size
+      storageChangeMB += (logoFile.size / (1024 * 1024));
     }
 
     const settings = await CompanySettings.findOneAndUpdate(
@@ -66,6 +87,14 @@ router.put("/", auth, attachCompanyId,checkPermission("settings", "edit"), async
       { new: true, upsert: true }
     );
 
+    // 🔥 DB Storage Update
+    if (storageChangeMB !== 0) {
+       await CompanySubscription.findOneAndUpdate(
+         { companyId: req.companyId },
+         { $inc: { "usage.storageUsedMB": storageChangeMB } }
+       );
+    }
+
     res.json({ success: true, data: settings });
   } catch (err) {
     console.error(err);
@@ -73,15 +102,28 @@ router.put("/", auth, attachCompanyId,checkPermission("settings", "edit"), async
   }
 });
 
-// REST OF THE DELETE ROUTES REMAIN SAME...
-router.delete("/logo", auth, attachCompanyId,checkPermission("settings", "delete"), async (req, res) => {
+router.delete("/logo", auth, attachCompanyId, checkSubscription, checkPermission("settings", "delete"), async (req, res) => {
   try {
     const settings = await CompanySettings.findOne({ companyId: req.companyId });
     if (settings?.logo) {
       const filePath = path.join(__dirname, "..", settings.logo.replace("/static", "uploads"));
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      let sizeToMinus = 0;
+      
+      if (fs.existsSync(filePath)) {
+         sizeToMinus = fs.statSync(filePath).size / (1024 * 1024);
+         fs.unlinkSync(filePath);
+      }
+      
       settings.logo = "";
       await settings.save();
+
+      // 🔥 Reduce Storage
+      if(sizeToMinus > 0) {
+        await CompanySubscription.findOneAndUpdate(
+          { companyId: req.companyId },
+          { $inc: { "usage.storageUsedMB": -sizeToMinus } }
+        );
+      }
     }
     res.json({ success: true, message: "Logo deleted" });
   } catch (err) {

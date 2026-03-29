@@ -19,7 +19,8 @@ const app = express();
 const allowedOrigins = [
   "https://hareetechhr.onrender.com",
   "http://localhost:5173",
-  "http://localhost:5174"
+  "http://localhost:5174",
+  "https://superadmin-k9k7.onrender.com"
 ];
 
 app.use(cors({

@@ -6,6 +6,7 @@ const User = require("../Modals/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const MasterEnquiry = require("../Modals/SuperAdmin/MasterEnquiry");
+const GlobalSetting = require("../Modals/SuperAdmin/GlobalSetting");
 
 exports.superAdminLogin = async (req, res) => {
   try {
@@ -279,5 +280,34 @@ exports.updatePlan = async (req, res) => {
     res.json({ success: true, message: "Plan updated successfully!", data: updatedPlan });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to update plan" });
+  }
+};
+
+
+// Get settings
+exports.getGlobalSettings = async (req, res) => {
+  try {
+    let settings = await GlobalSetting.findOne();
+    if (!settings) settings = await GlobalSetting.create({ expiryAlertDays: 3 });
+    res.json({ success: true, data: settings });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+// Update settings
+exports.updateGlobalSettings = async (req, res) => {
+  try {
+    const { expiryAlertDays } = req.body;
+    let settings = await GlobalSetting.findOne();
+    if (!settings) {
+      settings = await GlobalSetting.create({ expiryAlertDays });
+    } else {
+      settings.expiryAlertDays = expiryAlertDays;
+      await settings.save();
+    }
+    res.json({ success: true, message: "Settings updated successfully!", data: settings });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to update settings" });
   }
 };

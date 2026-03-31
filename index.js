@@ -64,6 +64,7 @@ dbConnect();
 require("./utils/taskDeadlineNotifier")();
 require("./utils/birthdayAnniversaryNotifier")();
 require("./utils/autoAbsent")();
+require("./utils/subscriptionNotifier")();
 
 app.use(express.json());
 

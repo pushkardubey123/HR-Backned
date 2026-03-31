@@ -17,7 +17,9 @@ const {
     deleteEnquiry,
     getAllTrials,
     deletePlan,
-    updatePlan
+    updatePlan,
+    getGlobalSettings,
+    updateGlobalSettings
 } = require("../Controllers/superAdminController");
 
 router.post("/login", superAdminLogin);
@@ -39,5 +41,8 @@ router.get("/public/plans", getAllPlans);
 // UPDATE & DELETE (Ye protected hain, sirf Super Admin use karega)
 router.put("/enquiries/:id/status", superAdminAuth, updateEnquiryStatus);
 router.delete("/enquiries/:id", superAdminAuth, deleteEnquiry);
+
+router.get("/settings", superAdminAuth, getGlobalSettings);
+router.put("/settings", superAdminAuth, updateGlobalSettings);
 
 module.exports = router;

@@ -23,7 +23,8 @@ const modules = [
   "asset_management", 
   "leave_types", 
   "leave_policies", 
-  "holidays"
+  "holidays",
+  "helpdesk"
 ];
 
 module.exports = modules;

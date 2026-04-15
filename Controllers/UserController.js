@@ -111,11 +111,10 @@ const register = async (req, res) => {
       const newAdmin = new userTbl({
         name, email, phone, passwordHash, role: "admin", status: "active", authProvider: "local"
       });
-      newAdmin.companyId = newAdmin._id; // Admin ki companyId wo khud hai
+      newAdmin.companyId = newAdmin._id;
       await newAdmin.save();
       await assignTrialPlan(newAdmin._id);
 
-      // 🔥 FIX: GENERATE AND RETURN TOKEN FOR PAYMENT GATEWAY 🔥
       const token = jwt.sign(
         { 
           id: newAdmin._id, 

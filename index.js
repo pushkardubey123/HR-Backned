@@ -75,6 +75,14 @@ cron.schedule('1 0 * * *', async () => {
         console.error("❌ Scheduled Auto-Payroll Error:", error);
     }
 });
+// Add this with your other cron jobs in index.js
+const checkSlaBreaches = require("./utils/slaEscalationNotifier");
+
+cron.schedule('* * * * *', async () => {
+    await checkSlaBreaches();
+});
+
+
 
 app.use(express.json());
 
@@ -103,6 +111,8 @@ app.use("/api/notifications", require("./Router/notificationRoutes"));
 app.use("/mail", require("./Router/mailRoutes"));
 app.use("/api", require("./Router/workFromHomeRoutes"));
 app.use(require("./Router/userRouter"));
+// App uses mein add kijiye:
+app.use("/api/tickets", require("./Router/ticketRoutes"));
 
 app.use("/api/permission", AuthorityRoutes);
 app.use("/api", permissionRouter);

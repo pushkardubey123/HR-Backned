@@ -22,7 +22,10 @@ const allowedOrigins = [
   "https://hareetechhr.onrender.com",
   "http://localhost:5173",
   "http://localhost:5174",
-  "https://superadmin-k9k7.onrender.com"
+  "https://superadmin-k9k7.onrender.com",
+  "https://hareetech.com", // <-- Naya Frontend Domain
+  "https://www.hareetech.com", 
+  "https://lavenderblush-swan-981566.hostingersite.com" // <-- Naya Hostinger Backend URL (agar zarurat pade)
 ];
 
 app.use(cors({

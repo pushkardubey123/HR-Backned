@@ -7,7 +7,7 @@ const checkSubscription = require("../Middleware/checkSubscription"); // ✅ Add
 const { sendMail, getAllMails, getMyMails, downloadAttachment, getTrashedMails, moveToTrash, restoreMail, deleteMailPermanently, getAllUsers, saveDraft, getDrafts, toggleStar, getStarredMails, toggleSpam, getSpamMails } = require("../Controllers/sendMailController");
 
 router.post("/send", auth, attachCompanyId, checkSubscription, sendMail);
-router.get("/user/all", auth, attachCompanyId, checkSubscription, getAllUsers);
+router.get("/user", auth, attachCompanyId, checkSubscription, getAllUsers);
 router.get("/", auth, attachCompanyId, checkSubscription, getAllMails);
 router.get("/my-mails", auth, attachCompanyId, checkSubscription, getMyMails);
 

@@ -4,7 +4,10 @@ const sendOTP = async (email, otp) => {
   try {
     
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      // ✅ "service: 'gmail'" hata diya gaya hai
+      host: process.env.EMAIL_HOST, // Ye automatically smtp.hostinger.com uthayega
+      port: process.env.EMAIL_PORT || 465, 
+      secure: true, // Port 465 ke liye secure true hona chahiye
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS, 
@@ -12,7 +15,7 @@ const sendOTP = async (email, otp) => {
     });
 
     const mailOptions = {
-      from: `"HRMS App" <${process.env.EMAIL_USER}>`,
+      from: `"HareetechHR" <${process.env.EMAIL_USER}>`,
       to: email,
       subject: "Password Reset OTP",
       html: `
